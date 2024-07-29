@@ -1,47 +1,46 @@
 version: "3.9"
 services:
-    tgbot:
-        container_name: tgbot
-        image: ghcr.io/taosky/telegram-search-bot:latest
-        restart: always
-        volumes:
-            - ./:/app/config
-        ports:
-            - "5006:5006"
-            - "9968:9968"
-        environment:
-            # Required
-            - BOT_TOKEN=xxxx:xxxxx # Bot Token
-            - LANG=zh_CN # Set language (Match with the language folder in the `locale` directory), default to Chinese
-            
-            # Optional (do not change if you dont' understand)
-            ## Userbot mode
-            - USER_BOT=0
-            - USER_BOT_API_ID=1234567
-            - USER_BOT_API_HASH=xxxxxxxxx                     
-            ## Webhook
-            - BOT_MODE=polling  # polling / webhook
-            - URL_PATH=your_token     # webhook path (same as route in Caddyfile)
-            - HOOK_URL=https://hook.example.xyz/your_token # webhook full url
-            # Do not modify
-            - CACHE_TIME=300
+  tgbot:
+    container_name: tgbot
+    image: tg-search-bot:latest
+    restart: always
+    volumes:
+      - ./:/app/config
+    ports:
+      - "5006:5006"
+      - "9968:9968"
+    environment:
+      # Required
+      - BOT_TOKEN=7383023559:AAHqA4mmK0GQUutA892QKueUuweP6oX3L3A # Bot Token
+      - LANG=zh_US # Set language (Match with the language folder in the `locale` directory), default to Chinese
 
-    ## Can create multiple bot containers, need to modify and use new configuration folders on your own
+      # Optional (do not change if you dont' understand)
+      ## Userbot mode
+      - USER_BOT=0
+      - USER_BOT_API_ID=1234567
+      - USER_BOT_API_HASH=xxxxxxxxx
+      ## Webhook
+      - BOT_MODE=polling # polling / webhook
+      - URL_PATH=your_token # webhook path (same as route in Caddyfile)
+      - HOOK_URL=https://hook.example.xyz/your_token # webhook full url
+      # Do not modify
+      - CACHE_TIME=300
 
-    #  tgbot2:
-    #   container_name: tgbot
-    #     image: ghcr.io/taosky/telegram-search-bot:latest
-    #     restart: always
-    #     volumes:
-    #     ......
+  ## Can create multiple bot containers, need to modify and use new configuration folders on your own
 
+  #  tgbot2:
+  #   container_name: tgbot
+  #     image: ghcr.io/taosky/telegram-search-bot:latest
+  #     restart: always
+  #     volumes:
+  #     ......
 
-    ## The webhook mode requires Caddy to be used for reverse proxy (or do reverse proxy yourself)
+  ## The webhook mode requires Caddy to be used for reverse proxy (or do reverse proxy yourself)
 
-    # caddy:
-    #     container_name: caddy
-    #     image: caddy:2-alpine
-    #     restart: unless-stopped
-    #     volumes:
-    #         - ./Caddyfile:/etc/caddy/Caddyfile
-    #     network_mode: "host"
+  # caddy:
+  #     container_name: caddy
+  #     image: caddy:2-alpine
+  #     restart: unless-stopped
+  #     volumes:
+  #         - ./Caddyfile:/etc/caddy/Caddyfile
+  #     network_mode: "host"

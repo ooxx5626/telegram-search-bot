@@ -1,9 +1,8 @@
-import telegram
+from telegram.ext import ContextTypes
 from utils import get_text_func
-
 _ = get_text_func()
 
-def set_bot_commands(context: telegram.ext.CallbackContext):
+async def set_bot_commands(context: ContextTypes.DEFAULT_TYPE):
     commands = [
         ('help', _('get search help')),
         ('chat_id', _('get current chat id (group or user)')),
@@ -12,4 +11,4 @@ def set_bot_commands(context: telegram.ext.CallbackContext):
         ('delete', _('delete saved messages if stopped  (userbot mode need `stop <group_id>`)'))
     ]
 
-    context.bot.set_my_commands(commands)
+    await context.bot.set_my_commands(commands)

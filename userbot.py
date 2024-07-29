@@ -1,14 +1,12 @@
 from telethon import TelegramClient, events
-
+from telethon.tl.types import PeerChat
 from utils import write_chat_members, load_chat_members, update_userbot_admin_id
 from database import DBSession, Message, User, Chat
 from utils import get_text_func
-
 import os
 import time
 import logging
 import pathlib
-
 
 SESSION_FILE = './config/anon.session'
 SESSION_LOCK_FILE = './config/anon.session.lock'
@@ -35,8 +33,8 @@ def insert_message(msg_id, msg_link, msg_text, from_id, from_chat, date):
 def update_message(from_chat, msg_id, msg_text):
     session = DBSession()
     session.query(Message) \
-        .filter(Message.from_chat.is_(from_chat)) \
-        .filter(Message.id.is_(msg_id)) \
+        .filter(Message.from_chat == from_chat) \
+        .filter(Message.id == msg_id) \
         .update({"text": msg_text})
     session.commit()
     session.close()
@@ -56,7 +54,7 @@ def insert_or_update_user(user_id, fullname, username):
     session.close()
 
 
-async def handle_new_message(event, client):
+async def handle_new_message(event):
     current_chat = await event.get_chat()
     # Skip non-group
     if not hasattr(current_chat, 'title'):
@@ -74,7 +72,7 @@ async def handle_new_message(event, client):
 
     # Update group member list as whitelist
     chat_members = load_chat_members()
-    members = await client.get_participants(current_chat)
+    members = await event.get_chat_participants()
     member_ids = [member.id for member in members if not member.deleted]
     chat_id_str = str(chat_id)
     chat_members[chat_id_str] = {}
@@ -94,13 +92,12 @@ async def handle_new_message(event, client):
         if sender_fullname == '':
             sender_fullname = sender_username
         user_id = from_id = event.from_id.user_id
-        msg_id = event.id
+        msg_id = event.message.id
         link_chat_id = str(chat_id)[4:] if str(chat_id).startswith('-100') else str(chat_id)
-        msg_link = 'https://t.me/c/{}/{}'.format(link_chat_id, event.id)
+        msg_link = f'https://t.me/c/{link_chat_id}/{event.message.id}'
         msg_text = event.message.message
-        msg_date = event.date
-        logging.debug('new_message: chat{} user{} "{}"'.format(
-            chat_id, from_id, msg_text))
+        msg_date = event.message.date
+        logging.debug(f'new_message: chat{chat_id} user{from_id} "{msg_text}"')
 
         # Save message
         insert_message(msg_id, msg_link, msg_text, from_id, chat_id, msg_date)
@@ -130,8 +127,7 @@ async def handle_edit_message(event):
     from_id = event.from_id.user_id
     msg_text = edited_message.message
 
-    logging.debug('edit_message: chat{} user{} "{}"'.format(
-        chat_id, from_id, msg_text))
+    logging.debug(f'edit_message: chat{chat_id} user{from_id} "{msg_text}"')
 
     update_message(chat_id, msg_id, msg_text)
 
@@ -144,8 +140,7 @@ async def run_telethon():
     api_hash = os.getenv("USER_BOT_API_HASH")
     client = TelegramClient(SESSION_FILE, api_id, api_hash)
     # Listen and handle new message
-    client.add_event_handler(lambda event: handle_new_message(
-        event, client), events.NewMessage)
+    client.add_event_handler(handle_new_message, events.NewMessage)
     # Listen and handle edited message
     client.add_event_handler(handle_edit_message, events.MessageEdited)
     # Start client

@@ -1,9 +1,9 @@
-from telegram.ext import CommandHandler
+from telegram import Update
+from telegram.ext import CommandHandler, ContextTypes
 from database import Chat, DBSession
 from utils import check_control_permission, is_userbot_mode, read_userbot_admin_id, get_text_func
 
 _ = get_text_func()
-
 
 def disbale_chat_or_do_nothing(chat_id):
     session = DBSession()
@@ -18,8 +18,7 @@ def disbale_chat_or_do_nothing(chat_id):
     session.close()
     return msg_text
 
-
-def stop(update, context):
+async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from_user_id = update.message.from_user.id
     # Command with userbot mode
     if is_userbot_mode():
@@ -28,12 +27,13 @@ def stop(update, context):
             command_text = context.args[0]
             if command_text.isdigit() or command_text.lstrip('-').isdigit():
                 msg_text = disbale_chat_or_do_nothing(int(command_text))
-                context.bot.send_message(chat_id=update.effective_chat.id, text=msg_text)
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=msg_text)
         return
+
     # Command with normal mode
     chat_id = update.effective_chat.id
-    chat_member = context.bot.get_chat_member(
-        chat_id=chat_id, user_id=from_user_id)
+    chat_member = await context.bot.get_chat_member(chat_id=chat_id, user_id=from_user_id)
+    
     # Check control permission
     if check_control_permission(from_user_id) is True:
         pass
@@ -44,8 +44,8 @@ def stop(update, context):
             return
     else:
         return
-    msg_text = disbale_chat_or_do_nothing(chat_id)
-    context.bot.send_message(chat_id=update.effective_chat.id, text=msg_text)
 
+    msg_text = disbale_chat_or_do_nothing(chat_id)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=msg_text)
 
 handler = CommandHandler('stop', stop)
