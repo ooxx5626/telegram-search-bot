@@ -3,8 +3,7 @@ import re
 import html
 import os
 from database import User, Message, Chat, DBSession
-from sqlalchemy import or_, func
-from sqlalchemy.orm import aliased
+from sqlalchemy import func, or_, and_
 import telegram
 from telegram import InlineQueryResultArticle, InputTextMessageContent, InlineQueryResultCachedSticker, Update
 from telegram.ext import InlineQueryHandler, ContextTypes
@@ -20,71 +19,64 @@ CACHE_TIME = int(os.getenv('CACHE_TIME', 300))
 def highlight_keywords(text, keywords):
     return reduce(lambda c, k: c.replace(k, f'<a href="">{html.escape(k)}</a>'), keywords, html.escape(text))
 
-pattern = re.compile(r'^(?:\s*@(\S+))?\s*(?:([^*]+)\s*)?(?:\*\s*(\d+))?$')
+STAR_PAGE_RE = re.compile(r'\* *(\d+)')
+USER_STAR_PAGE_RE = re.compile(r'@(\S+) *\* *(\d+)')
+
 def get_query_matches(query):
     if not query:
         return None, None, 1
-
-    match = pattern.match(query)
-    if match:
-        user, keywords, page = match.groups()
-        page = int(page) if page else 1
-        keywords = keywords.split() if keywords else None
-        return user, keywords, page
-
-    # 如果正則表達式不匹配，則使用原來的邏輯
-    keywords = query.split()
+    query = query.strip()
+    # 使用預編譯的正則表達式
+    if match := STAR_PAGE_RE.match(query):
+        return None, None, int(match.group(1))
+    if match := USER_STAR_PAGE_RE.match(query):
+        return match.group(1), None, int(match.group(2))
+    # 使用更高效的字符串操作
+    parts = query.split()
     user = None
     page = 1
-
-    if keywords and keywords[-1].isdigit():
-        page = int(keywords.pop())
-    if keywords and keywords[0].startswith('@'):
-        user = keywords.pop(0)[1:]
-    
-    keywords = keywords if keywords else None
+    if parts[-1].isdigit():
+        page = int(parts[-1])
+        parts = parts[:-1]
+    if parts and parts[0].startswith('@'):
+        user = parts[0][1:]
+        parts = parts[1:]
+    keywords = parts if parts else None
     return user, keywords, page
 
 
-
 def search_messages(uname, keywords, page, filter_chats):
-    messages = []
-    start = (page - 1) * SEARCH_PAGE_SIZE
-    stop = page * SEARCH_PAGE_SIZE
     with DBSession() as session:
         chat_ids = [chat[0] for chat in filter_chats]
         chat_titles = dict(filter_chats)
-        # 創建一個 User 別名來進行 JOIN
-        UserAlias = aliased(User)
-        query = session.query(Message, UserAlias)
-        # 基本過濾
-        query = query.filter(Message.from_chat.in_(chat_ids))
-        # JOIN User 表
-        query = query.join(UserAlias, Message.from_id == UserAlias.id)
-        # 用戶名過濾
+        # 基本查詢
+        base_query = session.query(Message, User.fullname.label('user_fullname')).\
+            join(User, Message.from_id == User.id).\
+            filter(Message.from_chat.in_(chat_ids))
+        # 用戶名和關鍵詞過濾
+        filters = []
         if uname:
-            query = query.filter(func.lower(UserAlias.fullname).contains(uname.lower()))
-        # 關鍵詞過濾
+            filters.append(func.lower(User.fullname).contains(func.lower(uname)))
         if keywords:
-            keyword_filters = [func.lower(Message.text).contains(keyword.lower()) for keyword in keywords]
-            query = query.filter(or_(*keyword_filters))
+            keyword_filters = [func.lower(Message.text).contains(func.lower(keyword)) for keyword in keywords]
+            filters.append(or_(*keyword_filters))
+        if filters:
+            base_query = base_query.filter(and_(*filters))
         # 計算總數
-        count = query.count()
+        count = base_query.count()
         # 獲取分頁數據
-        messages_data = query.order_by(Message.date.desc()).slice(start, stop).all()
-        for message, user in messages_data:
-            msg_text = f'[{message.type}] {message.text}' if message.type != 'text' else message.text
-            if msg_text:
-                messages.append({
-                    'id': message.id,
-                    'link': message.link,
-                    'text': msg_text,
-                    'date': message.date,
-                    'user': user.fullname,
-                    'chat': chat_titles[message.from_chat],
-                    'type': message.type
-                })
-
+        start = (page - 1) * SEARCH_PAGE_SIZE
+        messages_data = base_query.order_by(Message.date.desc()).\
+            offset(start).limit(SEARCH_PAGE_SIZE).all()
+        messages = [{
+            'id': message.id,
+            'link': message.link,
+            'text': f'[{message.type}] {message.text}' if message.type != 'text' else message.text,
+            'date': message.date,
+            'user': user_fullname,
+            'chat': chat_titles[message.from_chat],
+            'type': message.type
+        } for message, user_fullname in messages_data if message.text]
 
     return messages, count
 
