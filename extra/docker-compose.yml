@@ -2,7 +2,7 @@ version: "3.9"
 services:
   tgbot:
     container_name: tgbot
-    image: tg-search-bot:latest
+    image: tg-search:latest
     restart: always
     volumes:
       - ./:/app/config
