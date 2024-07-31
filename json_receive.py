@@ -52,9 +52,7 @@ def insert_message(chat_id, message):
         return 0, 0, None
 
     message_text = message.get('text', '')
-    
     insert_user_or_do_nothing(message_from_id[4:], message_from, message_from)
-    
     if isinstance(message_text, list):
         msg_text = ""
         for obj in message_text:
@@ -68,21 +66,20 @@ def insert_message(chat_id, message):
 
     if msg_text == '':
         msg_text = _('[other msg]')
-    
     message_date = datetime.strptime(message_date, '%Y-%m-%dT%H:%M:%S')
     link_chat_id = str(chat_id)[4:]
     message_from_id = strip_user_id(message_from_id)
-    new_msg = Message(id=message_id, 
-                      link=f'https://t.me/c/{link_chat_id}/{message_id}', 
-                      text=msg_text, 
-                      video='', 
+    new_msg = Message(id=message_id,
+                      link=f'https://t.me/c/{link_chat_id}/{message_id}',
+                      text=msg_text,
+                      video='',
                       photo='',
-                      audio='', 
-                      voice='', 
-                      type='text', 
-                      category='', 
-                      from_id=message_from_id, 
-                      from_chat=chat_id, 
+                      audio='',
+                      voice='',
+                      type='text',
+                      category='',
+                      from_id=message_from_id,
+                      from_chat=chat_id,
                       date=message_date)
 
     session = DBSession()
@@ -128,7 +125,6 @@ def main():
         # 使用 ijson 流式解析 JSON
         with open(TEMP_FILE_NAME, 'rb') as f:
             parser = ijson.parse(f)
-            
             # 獲取群組信息
             group_name = None
             group_id = None
@@ -185,5 +181,5 @@ def main():
         sock.sendall(result_text.encode())
 
         sock.send(_('\n按 Ctrl+C 退出').encode())
-        
+
 main()
